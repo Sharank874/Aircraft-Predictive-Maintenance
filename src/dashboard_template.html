@@ -1,0 +1,714 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Predictive maintenance results</title>
+<style>
+:root {
+  --font-anthropic-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-anthropic-serif: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  --color-fg: #1f1e1d; --color-fg-muted: #6b6862; --color-bg: #f5f4ef; --color-panel: #ffffff; --color-border-line: #e3e1da;
+  --color-ok: #2e7d4f; --color-warn: #a35f00; --color-bad: #c0392b;
+  --cds-font-size-caption: 12px; --cds-font-size-body: 14px; --cds-font-size-heading: 16px; --cds-font-size-title: 30px; --cds-font-weight-medium: 600;
+  --cds-gap-xs: 4px; --cds-gap-sm: 8px; --cds-gap-md: 16px; --cds-gap-lg: 24px; --cds-gap-xl: 32px;
+  --cds-pad-xs: 4px; --cds-pad-sm: 8px; --cds-pad-md: 12px; --cds-pad-lg: 20px; --cds-pad-xl: 28px; --cds-radius: 10px;
+  --cds-chart-categorical-1: #2f6db5; --cds-chart-categorical-2: #3a9d6a;
+  --cds-chart-muted: #bdbab1; --cds-chart-grid: #ecebe6; --cds-chart-axis: #c4c1b8; --cds-chart-reference: #9a978f; --cds-chart-status-critical: #c0392b;
+  --cds-surface-popover: #ffffff; --cds-border: #e3e1da; --cds-shadow-popover: 0 4px 16px rgba(0,0,0,.12); --cds-text-secondary: #6b6862; --cds-dur-slow: 250ms;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-fg: #ecebe6; --color-fg-muted: #a3a09a; --color-bg: #1c1b1a; --color-panel: #262523; --color-border-line: #3a3936;
+    --color-ok: #5fbf85; --color-warn: #e0a33a; --color-bad: #ef6b5b;
+    --cds-chart-categorical-1: #6ea2e6; --cds-chart-categorical-2: #6cc493;
+    --cds-chart-muted: #5c5a55; --cds-chart-grid: #33322f; --cds-chart-axis: #55534e; --cds-chart-reference: #8a877f; --cds-chart-status-critical: #ef6b5b;
+    --cds-surface-popover: #2e2d2b; --cds-border: #45433f; --cds-shadow-popover: 0 4px 16px rgba(0,0,0,.5); --cds-text-secondary: #a3a09a;
+  }
+}
+html, body { margin: 0; background: var(--color-bg); }
+#dash-root { max-width: 1280px; margin: 0 auto; padding: 28px clamp(16px, 4vw, 48px) 48px; box-sizing: border-box; }
+</style>
+<script>/*__D3__*/</script>
+<script>window.PM_DATA = /*__DATA__*/;</script>
+<script>
+// Minimal stand-in for the hosted dashboard runtime: data is embedded, so everything is "ok".
+window.dash = (() => {
+  const D = window.PM_DATA.datasets, calcs = {}, subs = [];
+  let params = Object.assign({}, window.PM_DATA.params);
+  const run = () => subs.forEach((f) => { try { f(); } catch (e) { console.error(e); } });
+  let t = null;
+  window.addEventListener('resize', () => { clearTimeout(t); t = setTimeout(run, 120); });
+  return {
+    data: (id) => {
+      const v = id in D ? D[id] : calcs[id];
+      return v === undefined || v === null ? { status: 'missing', data: [] } : { status: 'ok', data: v, refreshing: false };
+    },
+    calc: (id, { inputs, fn }) => {
+      const args = inputs.map((i) => (i in D ? D[i] : calcs[i]));
+      if (args.some((a) => a === undefined || a === null)) return;
+      try { calcs[id] = fn(...args); } catch (e) { console.error('calc ' + id, e); }
+    },
+    onData: (fn) => { subs.push(fn); fn(); },
+    params: () => params,
+    setParams: (p) => { params = Object.assign({}, params, p); run(); },
+    resetParams: () => { params = Object.assign({}, window.PM_DATA.params); run(); },
+    setLink: (name) => { try { history.replaceState(null, '', '#' + name); } catch (e) {} },
+    refresh: () => {},
+    colors: ['var(--cds-chart-categorical-1)', 'var(--cds-chart-categorical-2)'],
+  };
+})();
+</script>
+</head>
+<body>
+<div id="dash-root">
+<style>
+.pm { font-family: var(--font-anthropic-sans); color: var(--color-fg); }
+.pm-title { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); margin: 0 0 var(--cds-gap-xs); }
+.pm-take { color: var(--color-fg-muted); font-size: var(--cds-font-size-body); margin: 0 0 var(--cds-gap-lg); max-width: 62rem; line-height: 1.5; }
+.pm b { font-weight: 600; color: var(--color-fg); font-variant-numeric: tabular-nums; }
+.pm-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 11.5rem), 1fr)); gap: var(--cds-gap-md); margin-bottom: var(--cds-gap-lg); }
+.pm-card { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); min-width: 0; }
+.pm-kpi-label { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.pm-kpi-value { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); font-variant-numeric: tabular-nums; margin: var(--cds-gap-xs) 0; line-height: 1.15; }
+.pm-kpi-note { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); line-height: 1.4; }
+.pm-warn { color: var(--color-warn); }
+.pm-ok { color: var(--color-ok); }
+.pm-tabs { display: flex; gap: var(--cds-gap-xs); border-bottom: 1px solid var(--color-border-line); margin-bottom: var(--cds-gap-lg); flex-wrap: wrap; }
+.pm-tab { background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: var(--cds-pad-sm) var(--cds-pad-md); font: inherit; font-size: var(--cds-font-size-body); color: var(--color-fg-muted); cursor: pointer; }
+.pm-tab[aria-selected="true"] { color: var(--color-fg); border-bottom-color: var(--color-fg); }
+.pm-page[hidden] { display: none; }
+.pm-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); gap: var(--cds-gap-md); margin-bottom: var(--cds-gap-md); }
+.pm-card h2 { font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); margin: 0 0 var(--cds-gap-xs); }
+.pm-note { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin: 0 0 var(--cds-gap-md); line-height: 1.45; }
+.pm-chart { position: relative; }
+.pm-chart svg { display: block; overflow: visible; }
+.pm-explore { display: flex; flex-wrap: wrap; gap: var(--cds-gap-md); margin-bottom: var(--cds-gap-md); }
+.pm-explore > .pm-main { flex: 3 1 30rem; min-width: 0; }
+.pm-explore > .pm-side { flex: 1 1 15rem; min-width: 0; }
+.pm-controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cds-gap-sm) var(--cds-gap-md); margin-bottom: var(--cds-gap-md); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.pm-controls select, .pm-controls button { font: inherit; font-size: var(--cds-font-size-body); color: var(--color-fg); background: var(--color-bg); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-xs) var(--cds-pad-sm); cursor: pointer; }
+.pm-controls input[type=range] { flex: 1 1 10rem; min-width: 8rem; accent-color: var(--cds-chart-categorical-1); }
+.pm-seg { display: inline-flex; border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); overflow: hidden; }
+.pm-seg button { border: 0; border-radius: 0; background: none; font: inherit; font-size: var(--cds-font-size-caption); padding: var(--cds-pad-xs) var(--cds-pad-sm); color: var(--color-fg-muted); cursor: pointer; }
+.pm-seg button[aria-pressed="true"] { background: var(--color-bg); color: var(--color-fg); font-weight: 600; }
+.pm-status dl { display: grid; grid-template-columns: auto 1fr; gap: var(--cds-gap-sm) var(--cds-gap-md); margin: 0; font-size: var(--cds-font-size-body); }
+.pm-status dt { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); align-self: center; }
+.pm-status dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.pm-pill { display: inline-block; padding: 1px var(--cds-pad-sm); border-radius: 999px; font-size: var(--cds-font-size-caption); font-weight: 600; border: 1px solid currentColor; }
+.pm-big { font-family: var(--font-anthropic-serif); font-size: var(--cds-font-size-title); font-weight: 400; margin: var(--cds-gap-xs) 0 var(--cds-gap-md); font-variant-numeric: tabular-nums; }
+.pm-table-wrap { max-height: 22rem; overflow: auto; }
+.pm table { width: 100%; border-collapse: collapse; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+.pm th { position: sticky; top: 0; background: var(--color-panel); text-align: right; font-weight: 600; color: var(--color-fg-muted); padding: var(--cds-pad-xs) var(--cds-pad-sm); border-bottom: 1px solid var(--color-border-line); white-space: nowrap; }
+.pm td { text-align: right; padding: var(--cds-pad-xs) var(--cds-pad-sm); border-bottom: 1px solid var(--color-border-line); white-space: nowrap; }
+.pm th:first-child, .pm td:first-child { text-align: left; }
+.pm tr.pm-click { cursor: pointer; }
+.pm tr.pm-click:hover td { background: var(--color-bg); }
+.pm tr.pm-sel td { font-weight: 600; color: var(--color-fg); }
+.pm-tip { position: absolute; pointer-events: none; background: var(--cds-surface-popover); border: 1px solid var(--cds-border); border-radius: var(--cds-radius); box-shadow: var(--cds-shadow-popover); padding: var(--cds-pad-xs) var(--cds-pad-sm); font-size: var(--cds-font-size-caption); line-height: 1.5; white-space: nowrap; z-index: 2; }
+.pm-tip .pm-tip-h { color: var(--cds-text-secondary); }
+.pm-fail { display: flex; align-items: center; justify-content: center; gap: var(--cds-gap-sm); min-height: inherit; height: 100%; color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+.pm-dot { width: .375rem; height: .375rem; border-radius: 50%; background: var(--color-bad); }
+[data-dash-source-state=empty] { color: transparent; }
+[data-dash-source-state=refreshing] { opacity: .5; transition: opacity var(--cds-dur-slow); }
+.pm-chart text { font-family: var(--font-anthropic-sans); }
+</style>
+
+<div class="pm">
+  <header class="pm-head" id="top">
+    <h1 class="pm-title">Predictive maintenance results</h1>
+    <p class="pm-note" id="pm-built"></p>
+    <p class="pm-take" id="takeaway">The model warned <b data-source="lead_summary" data-field="warned" data-row="0">—</b> of <b data-source="lead_summary" data-field="total" data-row="0">—</b> held-out engines a median <b data-source="lead_summary" data-field="median_lead" data-row="0">—</b> cycles before failure. Its uncertainty is good for deciding which predictions an engineer should check, but it is not calibrated and it does not notice a fault mode it has never seen.</p>
+  </header>
+
+  <section class="pm-kpis" id="kpis">
+    <div class="pm-card">
+      <div class="pm-kpi-label">Held-out engines warned before failure</div>
+      <div class="pm-kpi-value"><span data-source="lead_summary" data-field="warned" data-row="0">—</span> of <span data-source="lead_summary" data-field="total" data-row="0">—</span></div>
+      <div class="pm-kpi-note">earliest <span data-source="lead_summary" data-field="max_lead" data-row="0">—</span>, latest <span data-source="lead_summary" data-field="min_lead" data-row="0">—</span> cycles ahead</div>
+    </div>
+    <div class="pm-card">
+      <div class="pm-kpi-label">Failure within 30 cycles: PR-AUC</div>
+      <div class="pm-kpi-value" data-source="headline" data-field="value" data-where="metric=pr_auc">—</div>
+      <div class="pm-kpi-note">precision <span data-source="headline" data-field="value" data-where="metric=precision">—</span> · recall <span data-source="headline" data-field="value" data-where="metric=recall">—</span></div>
+    </div>
+    <div class="pm-card">
+      <div class="pm-kpi-label">Remaining-life error, RMSE</div>
+      <div class="pm-kpi-value"><span data-source="headline" data-field="value" data-where="metric=rul_rmse">—</span> cycles</div>
+      <div class="pm-kpi-note">over all 10,196 windows of 100 unseen test engines</div>
+    </div>
+    <div class="pm-card">
+      <div class="pm-kpi-label">Error after an engineer reviews the 20% least-certain</div>
+      <div class="pm-kpi-value"><span data-source="review_gain" data-field="after20" data-row="0">—</span> cycles</div>
+      <div class="pm-kpi-note pm-ok"><span data-source="review_gain" data-field="reduction" data-row="0">—</span> lower than with no review</div>
+    </div>
+    <div class="pm-card">
+      <div class="pm-kpi-label">A nominal 95% uncertainty interval covers the truth</div>
+      <div class="pm-kpi-value pm-warn" data-source="headline" data-field="value" data-where="metric=coverage95">—</div>
+      <div class="pm-kpi-note">of the time: the spread ranks errors well but is not calibrated</div>
+    </div>
+  </section>
+
+  <nav class="pm-tabs" role="tablist" aria-label="Sections">
+    <button class="pm-tab" role="tab" id="tab-explorer" data-page="explorer">Engine explorer</button>
+    <button class="pm-tab" role="tab" id="tab-models" data-page="models">Which model wins</button>
+    <button class="pm-tab" role="tab" id="tab-trust" data-page="trust">Can you trust it?</button>
+  </nav>
+
+  <section class="pm-page" id="explorer">
+    <div class="pm-controls">
+      <label>Engine <select id="pm-engine" aria-label="Engine" data-source="lead"></select></label>
+      <button id="pm-play" type="button">Replay</button>
+      <input id="pm-cycle" type="range" min="1" max="2" step="1" aria-label="Cycle">
+      <span id="pm-cycle-label"></span>
+    </div>
+    <div class="pm-explore">
+      <div class="pm-card pm-main">
+        <h2 id="risk-title">Predicted risk over the engine's life</h2>
+        <p class="pm-note">Blue line: predicted risk index (0 healthy, 1 at failure). Shaded band: ±2 MC Dropout standard deviations. Dashed: true index. Drag the slider or press Replay to stream the engine cycle by cycle.</p>
+        <div class="pm-chart" id="risk-chart" data-source="trajectories lead" style="min-height:290px"></div>
+        <h2 style="margin-top:var(--cds-gap-lg)">Probability of failure within 30 cycles</h2>
+        <p class="pm-note">The alarm fires when this stays above the threshold chosen on validation engines for 3 cycles in a row.</p>
+        <div class="pm-chart" id="fault-chart" data-source="trajectories headline lead" style="min-height:160px"></div>
+      </div>
+      <div class="pm-card pm-side pm-status" id="status">
+        <h2>What the maintenance team sees</h2>
+        <p class="pm-note">The scorer's record at the cycle on the slider.</p>
+        <div class="pm-big"><span id="st-cat" class="pm-pill">—</span></div>
+        <dl>
+          <dt>Cycle</dt><dd id="st-cycle" data-source="trajectories" data-field="cycle">—</dd>
+          <dt>True remaining life</dt><dd><span id="st-true" data-source="trajectories" data-field="true_rul">—</span> cycles</dd>
+          <dt>Predicted remaining life</dt><dd><span id="st-pred" data-source="trajectories" data-field="pred_rul">—</span> cycles</dd>
+          <dt>Uncertainty (±2σ)</dt><dd id="st-unc">—</dd>
+          <dt>Failure probability</dt><dd id="st-fault" data-source="trajectories" data-field="fault_prob">—</dd>
+          <dt>Alarm</dt><dd id="st-alarm">—</dd>
+          <dt>Send to engineer</dt><dd id="st-review">—</dd>
+        </dl>
+        <p class="pm-note" style="margin-top:var(--cds-gap-md)">Categories by predicted remaining life: Critical ≤ 15, High 16–30, Moderate 31–60, Low over 60 cycles. Review flag: uncertainty in the top 10% seen on validation engines.</p>
+      </div>
+    </div>
+    <div class="pm-card" id="engines-card">
+      <h2>All 15 held-out engines</h2>
+      <p class="pm-note">Engines never used in training, run to failure. Click a row to explore it.</p>
+      <div class="pm-table-wrap">
+        <table id="engine-table" data-source="lead" data-row-key="engine">
+          <thead><tr><th data-field="engine">Engine</th><th data-field="life_cycles">Life (cycles)</th><th data-field="alarm_cycle">Alarm at cycle</th><th data-field="alarm_rul">Warning (cycles before failure)</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="pm-page" id="models" hidden>
+    <div class="pm-card" style="margin-bottom:var(--cds-gap-md)">
+      <h2 id="models-title">The BiLSTM does the work; a random forest still edges out the deep models</h2>
+      <p class="pm-note">NASA FD001 test set. Deep models: mean of 3 seeds, whisker = ±1 sd. Blue = the full CNN + BiLSTM + Attention model.</p>
+      <div class="pm-controls"><span class="pm-seg" role="group" aria-label="Metric"><button type="button" data-metric="pr_auc">Fault detection (PR-AUC, higher is better)</button><button type="button" data-metric="rul_rmse_last">Remaining life (RMSE cycles, lower is better)</button></span></div>
+      <div class="pm-chart" id="models-chart" data-source="models" style="min-height:300px"></div>
+    </div>
+    <div class="pm-card">
+      <h2>Every metric</h2>
+      <p class="pm-note">RUL RMSE (last window) is the standard C-MAPSS benchmark: one prediction per test engine. "All windows" scores every cycle.</p>
+      <div class="pm-table-wrap">
+        <table id="models-table" data-source="models" data-row-key="model">
+          <thead><tr><th data-field="model">Model</th><th data-field="family">Family</th><th data-field="pr_auc">PR-AUC</th><th data-field="f1">F1</th><th data-field="precision">Precision</th><th data-field="recall">Recall</th><th data-field="rul_rmse_last">RUL RMSE, last window</th><th data-field="rul_rmse_all">RUL RMSE, all windows</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="pm-page" id="trust" hidden>
+    <div class="pm-grid">
+      <div class="pm-card">
+        <h2 id="quint-title">Less certain predictions are much less accurate</h2>
+        <p class="pm-note">Test windows split into fifths by MC Dropout spread. Spearman correlation of spread with error: <b data-source="headline" data-field="value" data-where="metric=spearman">—</b>.</p>
+        <div class="pm-chart" id="quint-chart" data-source="quintiles" style="min-height:240px"></div>
+      </div>
+      <div class="pm-card">
+        <h2 id="referral-title">Reviewing by uncertainty beats reviewing at random</h2>
+        <p class="pm-note">RMSE on the predictions left after sending a share to an engineer.</p>
+        <div class="pm-chart" id="referral-chart" data-source="referral" style="min-height:240px"></div>
+      </div>
+    </div>
+    <div class="pm-grid">
+      <div class="pm-card">
+        <h2 id="shift-title">On an unseen fault mode, error rises but uncertainty falls</h2>
+        <p class="pm-note">The FD001-trained model run on FD003, which adds a fan-degradation fault. MC Dropout is confidently wrong: a separate input-drift check is needed.</p>
+        <div class="pm-chart" id="shift-chart" data-source="shift" style="min-height:220px"></div>
+      </div>
+      <div class="pm-card">
+        <h2 id="cat-title">Risk categories: right <span data-source="headline" data-field="value" data-where="metric=category_accuracy">—</span> of the time</h2>
+        <p class="pm-note">Test windows by true (rows) and predicted (columns) category. Shade = share of the row. No engine near failure was called Low.</p>
+        <div class="pm-chart" id="cat-chart" data-source="categories" style="min-height:240px"></div>
+      </div>
+    </div>
+    <div class="pm-card">
+      <h2 id="att-title">Near failure, attention moves to the latest cycles</h2>
+      <p class="pm-note">Mean attention weight at each of the 30 positions in the input window. This describes what the layer does; it is not a causal explanation.</p>
+      <div class="pm-chart" id="att-chart" data-source="attention" style="min-height:240px"></div>
+    </div>
+  </section>
+</div>
+
+<script>
+dash.calc('lead', {
+  inputs: ['trajectories', 'headline'],
+  title: 'Alarm and lead time per engine',
+  description: 'First cycle where failure probability stays at or above the alarm threshold for 3 cycles in a row, and the true remaining life at that cycle.',
+  fn: (trajectories, headline) => {
+    const thr = headline.find((r) => r.metric === 'alarm_threshold').value;
+    const engines = [...new Set(trajectories.map((r) => r.engine))].sort((a, b) => a - b);
+    return engines.map((engine) => {
+      const s = trajectories.filter((r) => r.engine === engine).sort((a, b) => a.cycle - b.cycle);
+      let run = 0, hit = null;
+      for (const r of s) { run = r.fault_prob >= thr ? run + 1 : 0; if (run === 3) { hit = r; break; } }
+      return { engine, life_cycles: Math.max(...s.map((r) => r.cycle)), alarm_cycle: hit ? hit.cycle : null, alarm_rul: hit ? hit.true_rul : null };
+    });
+  },
+});
+dash.calc('lead_summary', {
+  inputs: ['lead'],
+  title: 'Warning summary',
+  description: 'How many held-out engines were warned before failure, and the median, earliest and latest warning in cycles.',
+  fn: (lead) => {
+    const v = lead.filter((r) => r.alarm_rul !== null).map((r) => r.alarm_rul).sort((a, b) => a - b);
+    const mid = v.length % 2 ? v[(v.length - 1) / 2] : (v[v.length / 2 - 1] + v[v.length / 2]) / 2;
+    return [{ warned: v.length, total: lead.length, median_lead: mid, min_lead: v[0], max_lead: v[v.length - 1] }];
+  },
+});
+dash.calc('review_gain', {
+  inputs: ['referral'],
+  title: 'Gain from reviewing uncertain cases',
+  description: 'RUL RMSE with no review, after an engineer reviews the 20% most uncertain windows, and the relative reduction.',
+  fn: (referral) => {
+    const before = referral.find((r) => r.referred_pct === 0).by_uncertainty;
+    const after20 = referral.find((r) => r.referred_pct === 20).by_uncertainty;
+    return [{ before, after20, reduction: (before - after20) / before }];
+  },
+});
+</script>
+
+<script>
+(() => {
+  const D = (id) => dash.data(id);
+  const ok = (...ids) => ids.every((id) => D(id).status === 'ok');
+  const failed = (...ids) => ids.some((id) => ['error', 'declined', 'missing'].includes(D(id).status));
+  const f1 = d3.format('.1f'), f2 = d3.format('.2f'), pct0 = d3.format('.0%'), pct1 = d3.format('.1%'), intf = d3.format(',');
+  const ACC = dash.colors[0], ACC2 = dash.colors[1];
+  const MUTED = 'var(--cds-chart-muted)', GRID = 'var(--cds-chart-grid)', AXIS = 'var(--cds-chart-axis)', REF = 'var(--cds-chart-reference)', CRIT = 'var(--cds-chart-status-critical)';
+  const FG = 'var(--color-fg)', FGM = 'var(--color-fg-muted)';
+  const RUL_CAP = 125;
+  const CATS = [{ name: 'Low', lo: 0, hi: 1 - 60 / RUL_CAP }, { name: 'Moderate', lo: 1 - 60 / RUL_CAP, hi: 1 - 30 / RUL_CAP }, { name: 'High', lo: 1 - 30 / RUL_CAP, hi: 1 - 15 / RUL_CAP }, { name: 'Critical', lo: 1 - 15 / RUL_CAP, hi: 1.0001 }];
+  const catOf = (risk) => CATS.find((c) => risk >= c.lo && risk < c.hi) || CATS[3];
+  const catColor = { Low: 'var(--color-ok)', Moderate: 'var(--color-fg-muted)', High: 'var(--color-warn)', Critical: 'var(--color-bad)' };
+  const hv = (metric) => { const r = (D('headline').data || []).find((x) => x.metric === metric); return r ? r.value : null; };
+
+  const put = (sel, text) => document.querySelectorAll(sel).forEach((el) => { el.textContent = text; });
+  const setText = (el, v) => { if (el) el.textContent = v; };
+
+  function boxState(el, ids) {
+    if (ok(...ids)) { el.classList.remove('dash-skeleton'); return true; }
+    el.replaceChildren();
+    if (failed(...ids)) {
+      el.classList.remove('dash-skeleton');
+      const f = document.createElement('div'); f.className = 'pm-fail';
+      const dot = document.createElement('span'); dot.className = 'pm-dot';
+      f.append(dot, document.createTextNode('Failed to load')); el.append(f);
+    } else el.classList.add('dash-skeleton');
+    return false;
+  }
+  function svgIn(el, h) {
+    el.replaceChildren();
+    const w = Math.max(280, el.clientWidth);
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${w} ${h}`).attr('height', h);
+    return { svg, w };
+  }
+  function tipIn(el) {
+    const t = document.createElement('div'); t.className = 'pm-tip'; t.hidden = true; el.append(t); return t;
+  }
+  function showTip(el, tip, x, y, lines) {
+    tip.replaceChildren();
+    lines.forEach((l, i) => { const d = document.createElement('div'); if (i === 0) d.className = 'pm-tip-h'; d.textContent = l; tip.append(d); });
+    tip.hidden = false;
+    const tw = tip.offsetWidth, ew = el.clientWidth;
+    tip.style.left = Math.max(0, Math.min(x + 14, ew - tw)) + 'px';
+    tip.style.top = Math.max(0, y - 10) + 'px';
+  }
+  const styleAxis = (g) => { g.attr('font-size', null).attr('font-family', null); g.selectAll('text').attr('fill', FGM).style('font-size', 'var(--cds-font-size-caption)'); g.selectAll('path,line').attr('stroke', AXIS); };
+  const gridY = (g, y, x0, x1, ticks) => g.selectAll('line').data(ticks).join('line').attr('x1', x0).attr('x2', x1).attr('y1', (d) => y(d)).attr('y2', (d) => y(d)).attr('stroke', GRID);
+
+  // ---------- tabs ----------
+  const tabs = [...document.querySelectorAll('.pm-tab')];
+  let page = 'explorer';
+  function showPage(p, link) {
+    page = p;
+    tabs.forEach((t) => t.setAttribute('aria-selected', String(t.dataset.page === p)));
+    document.querySelectorAll('.pm-page').forEach((s) => { s.hidden = s.id !== p; });
+    if (link) dash.setLink(p);
+    render();
+  }
+  tabs.forEach((t) => t.addEventListener('click', () => showPage(t.dataset.page, true)));
+
+  // ---------- engine explorer state ----------
+  const selEngine = document.getElementById('pm-engine');
+  const slider = document.getElementById('pm-cycle');
+  const playBtn = document.getElementById('pm-play');
+  let cursor = null, cursorEngine = null, timer = null;
+  const engineNow = () => Number(dash.params().engine);
+  selEngine.addEventListener('change', () => { stop(); dash.setParams({ engine: Number(selEngine.value) }); });
+  slider.addEventListener('input', () => { stop(); cursor = Number(slider.value); drawExplorer(); });
+  function stop() { if (timer) { clearInterval(timer); timer = null; playBtn.textContent = 'Replay'; } }
+  playBtn.addEventListener('click', () => {
+    if (timer) { stop(); return; }
+    const rows = engineRows();
+    if (!rows.length) return;
+    cursor = rows[0].cycle; playBtn.textContent = 'Pause';
+    timer = setInterval(() => {
+      const last = rows[rows.length - 1].cycle;
+      cursor = Math.min(last, cursor + 2);
+      drawExplorer();
+      if (cursor >= last) stop();
+    }, 60);
+  });
+  document.getElementById('engine-table').addEventListener('click', (e) => {
+    const tr = e.target.closest('tr[data-key]');
+    if (tr) { stop(); dash.setParams({ engine: Number(tr.dataset.key) }); }
+  });
+  function engineRows() {
+    if (!ok('trajectories')) return [];
+    const e = engineNow();
+    return D('trajectories').data.filter((r) => r.engine === e).sort((a, b) => a.cycle - b.cycle);
+  }
+
+  function drawExplorer() {
+    const riskEl = document.getElementById('risk-chart');
+    const faultEl = document.getElementById('fault-chart');
+    const rOk = boxState(riskEl, ['trajectories', 'lead']);
+    const fOk = boxState(faultEl, ['trajectories', 'headline', 'lead']);
+    // engine list
+    if (ok('lead')) {
+      const lead = D('lead').data;
+      const cur = String(engineNow());
+      if (selEngine.options.length !== lead.length) selEngine.replaceChildren(...lead.map((r) => new Option(`Engine ${r.engine}`, String(r.engine))));
+      selEngine.value = cur;
+      const tb = document.querySelector('#engine-table tbody');
+      tb.replaceChildren(...lead.map((r) => {
+        const tr = document.createElement('tr'); tr.className = 'pm-click' + (String(r.engine) === cur ? ' pm-sel' : ''); tr.dataset.key = String(r.engine);
+        [String(r.engine), intf(r.life_cycles), r.alarm_cycle === null ? 'no alarm' : intf(r.alarm_cycle), r.alarm_rul === null ? '—' : intf(r.alarm_rul)].forEach((v) => { const td = document.createElement('td'); td.textContent = v; tr.append(td); });
+        return tr;
+      }));
+    }
+    if (!rOk) return;
+    const rows = engineRows();
+    if (!rows.length) return;
+    const e = engineNow();
+    const leadRow = D('lead').data.find((r) => r.engine === e);
+    if (cursorEngine !== e || cursor === null) { cursorEngine = e; cursor = leadRow && leadRow.alarm_cycle !== null ? leadRow.alarm_cycle : rows[rows.length - 1].cycle; }
+    slider.min = rows[0].cycle; slider.max = rows[rows.length - 1].cycle; slider.value = cursor;
+    const at = rows.find((r) => r.cycle === cursor) || rows[rows.length - 1];
+    setText(document.getElementById('pm-cycle-label'), `cycle ${at.cycle} of ${rows[rows.length - 1].cycle}`);
+
+    // risk chart
+    const H = 290, m = { l: 40, r: 78, t: 10, b: 30 };
+    const { svg, w } = svgIn(riskEl, H);
+    const x = d3.scaleLinear([rows[0].cycle, rows[rows.length - 1].cycle], [m.l, w - m.r]);
+    const y = d3.scaleLinear([0, 1], [H - m.b, m.t]);
+    const bands = svg.append('g');
+    CATS.forEach((c, i) => {
+      if (i > 0) bands.append('line').attr('x1', m.l).attr('x2', w - m.r).attr('y1', y(c.lo)).attr('y2', y(c.lo)).attr('stroke', REF).attr('stroke-dasharray', '3 4');
+      bands.append('text').attr('x', w - m.r + 8).attr('y', y((c.lo + Math.min(c.hi, 1)) / 2) + 4).attr('fill', catColor[c.name]).style('font-size', 'var(--cds-font-size-caption)').text(c.name);
+    });
+    const ya = svg.append('g').attr('transform', `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(5).tickFormat(d3.format('.1f')).tickSize(0).tickPadding(8));
+    styleAxis(ya); ya.select('.domain').remove();
+    const xa = svg.append('g').attr('transform', `translate(0,${H - m.b})`).call(d3.axisBottom(x).ticks(Math.max(3, Math.floor(w / 90))).tickSizeOuter(0));
+    styleAxis(xa);
+    svg.append('path').datum(rows).attr('fill', ACC).attr('fill-opacity', 0.16)
+      .attr('d', d3.area().x((r) => x(r.cycle)).y0((r) => y(Math.max(0, r.pred_risk - 2 * r.risk_std))).y1((r) => y(Math.min(1, r.pred_risk + 2 * r.risk_std))));
+    svg.append('path').datum(rows).attr('fill', 'none').attr('stroke', FGM).attr('stroke-width', 1.5).attr('stroke-dasharray', '5 4')
+      .attr('d', d3.line().x((r) => x(r.cycle)).y((r) => y(r.true_risk)));
+    svg.append('path').datum(rows).attr('fill', 'none').attr('stroke', ACC).attr('stroke-width', 2).attr('stroke-linejoin', 'round').attr('stroke-linecap', 'round')
+      .attr('d', d3.line().x((r) => x(r.cycle)).y((r) => y(r.pred_risk)));
+    if (leadRow && leadRow.alarm_cycle !== null) {
+      svg.append('line').attr('x1', x(leadRow.alarm_cycle)).attr('x2', x(leadRow.alarm_cycle)).attr('y1', m.t).attr('y2', H - m.b).attr('stroke', CRIT).attr('stroke-dasharray', '4 4');
+      const lx = x(leadRow.alarm_cycle);
+      svg.append('text').attr('x', lx - 6).attr('y', m.t + 12).attr('text-anchor', 'end').attr('fill', CRIT).style('font-size', 'var(--cds-font-size-caption)').text(`alarm, ${leadRow.alarm_rul} cycles before failure`);
+    }
+    svg.append('line').attr('x1', x(at.cycle)).attr('x2', x(at.cycle)).attr('y1', m.t).attr('y2', H - m.b).attr('stroke', FG).attr('stroke-opacity', 0.35);
+    svg.append('circle').attr('cx', x(at.cycle)).attr('cy', y(at.pred_risk)).attr('r', 4.5).attr('fill', ACC).attr('stroke', 'var(--color-panel)').attr('stroke-width', 2);
+    // hover
+    const tip = tipIn(riskEl);
+    const bis = d3.bisector((r) => r.cycle).center;
+    svg.append('rect').attr('x', m.l).attr('y', m.t).attr('width', w - m.l - m.r).attr('height', H - m.t - m.b).attr('fill', 'transparent')
+      .on('mousemove', (ev) => {
+        const [px, py] = d3.pointer(ev);
+        const r = rows[bis(rows, x.invert(px))];
+        showTip(riskEl, tip, px, py, [`Cycle ${r.cycle}`, `True remaining life ${f1(r.true_rul)}`, `Predicted ${f1(r.pred_rul)} ± ${f1(2 * r.risk_std * RUL_CAP)} cycles`, `Risk ${f2(r.pred_risk)} (${catOf(r.pred_risk).name})`]);
+      })
+      .on('mouseleave', () => { tip.hidden = true; })
+      .on('click', (ev) => { stop(); const [px] = d3.pointer(ev); cursor = rows[bis(rows, x.invert(px))].cycle; drawExplorer(); });
+
+    // fault chart
+    if (fOk) {
+      const thr = hv('alarm_threshold');
+      const H2 = 160, m2 = { l: 40, r: 78, t: 8, b: 26 };
+      const { svg: s2, w: w2 } = svgIn(faultEl, H2);
+      const x2 = d3.scaleLinear(x.domain(), [m2.l, w2 - m2.r]);
+      const y2 = d3.scaleLinear([0, 1], [H2 - m2.b, m2.t]);
+      gridY(s2.append('g'), y2, m2.l, w2 - m2.r, [0, 0.5, 1]);
+      const ya2 = s2.append('g').attr('transform', `translate(${m2.l},0)`).call(d3.axisLeft(y2).tickValues([0, 0.5, 1]).tickFormat(d3.format('.1f')).tickSize(0).tickPadding(8));
+      styleAxis(ya2); ya2.select('.domain').remove();
+      const xa2 = s2.append('g').attr('transform', `translate(0,${H2 - m2.b})`).call(d3.axisBottom(x2).ticks(Math.max(3, Math.floor(w2 / 90))).tickSizeOuter(0));
+      styleAxis(xa2);
+      s2.append('line').attr('x1', m2.l).attr('x2', w2 - m2.r).attr('y1', y2(thr)).attr('y2', y2(thr)).attr('stroke', CRIT).attr('stroke-dasharray', '4 4');
+      s2.append('text').attr('x', w2 - m2.r + 8).attr('y', y2(thr) + 4).attr('fill', CRIT).style('font-size', 'var(--cds-font-size-caption)').text(`threshold ${f2(thr)}`);
+      s2.append('path').datum(rows).attr('fill', 'none').attr('stroke', ACC).attr('stroke-width', 2).attr('stroke-linejoin', 'round')
+        .attr('d', d3.line().x((r) => x2(r.cycle)).y((r) => y2(r.fault_prob)));
+      s2.append('line').attr('x1', x2(at.cycle)).attr('x2', x2(at.cycle)).attr('y1', m2.t).attr('y2', H2 - m2.b).attr('stroke', FG).attr('stroke-opacity', 0.35);
+      s2.append('circle').attr('cx', x2(at.cycle)).attr('cy', y2(at.fault_prob)).attr('r', 4).attr('fill', ACC).attr('stroke', 'var(--color-panel)').attr('stroke-width', 2);
+    }
+
+    // status card
+    const thr = hv('alarm_threshold'), rstd = hv('review_std');
+    const where = `engine=${e}&cycle=${at.cycle}`;
+    ['st-cycle', 'st-true', 'st-pred', 'st-fault'].forEach((id) => document.getElementById(id).setAttribute('data-where', where));
+    setText(document.getElementById('st-cycle'), String(at.cycle));
+    setText(document.getElementById('st-true'), f1(at.true_rul));
+    setText(document.getElementById('st-pred'), f1(at.pred_rul));
+    setText(document.getElementById('st-unc'), `± ${f1(2 * at.risk_std * RUL_CAP)} cycles`);
+    setText(document.getElementById('st-fault'), pct1(at.fault_prob));
+    const idx = rows.indexOf(at);
+    const alarmOn = leadRow && leadRow.alarm_cycle !== null && at.cycle >= leadRow.alarm_cycle;
+    const st = document.getElementById('st-alarm'); st.textContent = alarmOn ? 'Raised' : 'No'; st.style.color = alarmOn ? 'var(--color-bad)' : '';
+    const review = rstd !== null && at.risk_std > rstd;
+    const rv = document.getElementById('st-review'); rv.textContent = review ? 'Yes, uncertain' : 'No'; rv.style.color = review ? 'var(--color-warn)' : '';
+    const cat = catOf(at.pred_risk).name;
+    const pill = document.getElementById('st-cat'); pill.textContent = `${cat} risk`; pill.style.color = catColor[cat];
+    void idx; void thr;
+  }
+
+  // ---------- models ----------
+  let metric = 'pr_auc';
+  const segBtns = [...document.querySelectorAll('[data-metric]')];
+  segBtns.forEach((b) => b.addEventListener('click', () => { metric = b.dataset.metric; render(); }));
+  function drawModels() {
+    segBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.metric === metric)));
+    const el = document.getElementById('models-chart');
+    const tb = document.querySelector('#models-table tbody');
+    if (!boxState(el, ['models'])) { tb.replaceChildren(); return; }
+    const rows = D('models').data;
+    const sdKey = metric === 'pr_auc' ? 'pr_auc_sd' : 'rul_rmse_last_sd';
+    const fmt = metric === 'pr_auc' ? f2 : f1;
+    const valid = rows.filter((r) => r[metric] !== null);
+    const best = metric === 'pr_auc' ? d3.max(valid, (r) => r[metric]) : d3.min(valid, (r) => r[metric]);
+    const rowH = 34, gap = 26, m = { t: 22, r: 70, b: 10 };
+    const families = [...new Set(rows.map((r) => r.family))];
+    const H = m.t + rows.length * rowH + (families.length - 1) * gap + families.length * 18 + m.b;
+    const { svg, w } = svgIn(el, H);
+    const probe = svg.append('text').style('font-size', 'var(--cds-font-size-caption)');
+    const labW = d3.max(rows, (r) => { probe.text(r.model); return probe.node().getComputedTextLength(); }) + 16;
+    probe.remove();
+    const l = Math.min(labW, w * 0.45);
+    const maxV = metric === 'pr_auc' ? 1 : Math.ceil(d3.max(valid, (r) => r[metric] + r[sdKey]) / 5) * 5;
+    const x = d3.scaleLinear([0, maxV], [l, w - m.r]);
+    const xa = svg.append('g').attr('transform', `translate(0,${m.t - 6})`).call(d3.axisTop(x).ticks(5).tickSize(0).tickPadding(4).tickFormat(metric === 'pr_auc' ? d3.format('.1f') : d3.format('d')));
+    styleAxis(xa); xa.select('.domain').remove();
+    let yy = m.t;
+    const tip = tipIn(el);
+    families.forEach((fam, fi) => {
+      if (fi > 0) { svg.append('line').attr('x1', 0).attr('x2', w).attr('y1', yy + gap / 2 - 4).attr('y2', yy + gap / 2 - 4).attr('stroke', GRID); yy += gap; }
+      svg.append('text').attr('x', 0).attr('y', yy + 12).attr('fill', FGM).style('font-size', 'var(--cds-font-size-caption)').text(fam);
+      yy += 18;
+      rows.filter((r) => r.family === fam).forEach((r) => {
+        const isFull = r.model === 'CNN + BiLSTM + Attention';
+        const isBest = r[metric] === best;
+        svg.append('text').attr('x', 0).attr('y', yy + rowH / 2 + 4).attr('fill', FG).style('font-size', 'var(--cds-font-size-caption)').style('font-weight', isFull ? 600 : 400).text(r.model);
+        if (r[metric] === null) {
+          svg.append('text').attr('x', l + 6).attr('y', yy + rowH / 2 + 4).attr('fill', FGM).style('font-size', 'var(--cds-font-size-caption)').text('no remaining-life output');
+        } else {
+          const bar = svg.append('rect').attr('x', l).attr('y', yy + 8).attr('height', rowH - 16).attr('width', Math.max(1, x(r[metric]) - l)).attr('rx', 4).attr('fill', isFull ? ACC : MUTED);
+          bar.on('mousemove', (ev) => { const [px, py] = d3.pointer(ev, el); showTip(el, tip, px, py, [r.model, `${metric === 'pr_auc' ? 'PR-AUC' : 'RUL RMSE'} ${fmt(r[metric])}${r[sdKey] ? ' ± ' + fmt(r[sdKey]) : ''}`, `${r.seeds} seed${r.seeds > 1 ? 's' : ''}`]); }).on('mouseleave', () => { tip.hidden = true; });
+          if (r[sdKey] > 0) svg.append('line').attr('x1', x(r[metric] - r[sdKey])).attr('x2', x(r[metric] + r[sdKey])).attr('y1', yy + rowH / 2).attr('y2', yy + rowH / 2).attr('stroke', FG).attr('stroke-width', 1.25);
+          svg.append('text').attr('x', x(r[metric] + (r[sdKey] || 0)) + 6).attr('y', yy + rowH / 2 + 4).attr('fill', FG).style('font-size', 'var(--cds-font-size-caption)').style('font-weight', isBest ? 600 : 400)
+            .text(fmt(r[metric]) + (isBest ? '  best' : ''));
+        }
+        yy += rowH;
+      });
+    });
+    tb.replaceChildren(...rows.map((r) => {
+      const tr = document.createElement('tr');
+      [r.model, r.family, f2(r.pr_auc), f2(r.f1), f2(r.precision), f2(r.recall), r.rul_rmse_last === null ? '—' : f1(r.rul_rmse_last), r.rul_rmse_all === null ? '—' : f1(r.rul_rmse_all)]
+        .forEach((v) => { const td = document.createElement('td'); td.textContent = v; tr.append(td); });
+      return tr;
+    }));
+  }
+
+  // ---------- trust ----------
+  function drawQuint() {
+    const el = document.getElementById('quint-chart');
+    if (!boxState(el, ['quintiles'])) return;
+    const rows = D('quintiles').data;
+    const H = 240, m = { l: 8, r: 8, t: 22, b: 42 };
+    const { svg, w } = svgIn(el, H);
+    const x = d3.scaleBand(rows.map((r) => r.quintile), [m.l, w - m.r]).padding(0.3);
+    const y = d3.scaleLinear([0, d3.max(rows, (r) => r.mae_cycles) * 1.1], [H - m.b, m.t]);
+    const tip = tipIn(el);
+    rows.forEach((r, i) => {
+      const bw = Math.min(56, x.bandwidth()), bx = x(r.quintile) + (x.bandwidth() - bw) / 2;
+      svg.append('rect').attr('x', bx).attr('y', y(r.mae_cycles)).attr('width', bw).attr('height', y(0) - y(r.mae_cycles)).attr('rx', 4).attr('fill', ACC).attr('fill-opacity', 0.3 + 0.17 * i)
+        .on('mousemove', (ev) => { const [px, py] = d3.pointer(ev, el); showTip(el, tip, px, py, [r.quintile, `Mean error ${f1(r.mae_cycles)} cycles`, `Mean spread ${f1(r.mean_spread_cycles)} cycles`]); }).on('mouseleave', () => { tip.hidden = true; });
+      svg.append('text').attr('x', bx + bw / 2).attr('y', y(r.mae_cycles) - 6).attr('text-anchor', 'middle').attr('fill', FG).style('font-size', 'var(--cds-font-size-caption)').text(f1(r.mae_cycles));
+      svg.append('text').attr('x', bx + bw / 2).attr('y', H - m.b + 16).attr('text-anchor', 'middle').attr('fill', FGM).style('font-size', 'var(--cds-font-size-caption)').text(r.quintile);
+    });
+    svg.append('line').attr('x1', m.l).attr('x2', w - m.r).attr('y1', y(0)).attr('y2', y(0)).attr('stroke', AXIS);
+    svg.append('text').attr('x', m.l).attr('y', H - 6).attr('fill', FGM).style('font-size', 'var(--cds-font-size-caption)').text('Q1 most certain → Q5 least certain · mean absolute error, cycles');
+  }
+  function drawReferral() {
+    const el = document.getElementById('referral-chart');
+    if (!boxState(el, ['referral'])) return;
+    const rows = D('referral').data.slice().sort((a, b) => a.referred_pct - b.referred_pct);
+    const H = 240, m = { l: 34, r: 150, t: 14, b: 42 };
+    const { svg, w } = svgIn(el, H);
+    const x = d3.scaleLinear([0, d3.max(rows, (r) => r.referred_pct)], [m.l, w - m.r]);
+    const lo = Math.floor(d3.min(rows, (r) => Math.min(r.by_uncertainty, r.at_random)) - 0.5), hi = Math.ceil(d3.max(rows, (r) => Math.max(r.by_uncertainty, r.at_random)) + 0.5);
+    const y = d3.scaleLinear([lo, hi], [H - m.b, m.t]);
+    gridY(svg.append('g'), y, m.l, w - m.r, y.ticks(4));
+    const ya = svg.append('g').attr('transform', `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(4).tickSize(0).tickPadding(6)); styleAxis(ya); ya.select('.domain').remove();
+    const xa = svg.append('g').attr('transform', `translate(0,${H - m.b})`).call(d3.axisBottom(x).tickValues(rows.map((r) => r.referred_pct)).tickFormat((d) => d + '%').tickSizeOuter(0)); styleAxis(xa);
+    const series = [{ key: 'at_random', label: 'at random', color: MUTED, dash: '5 4' }, { key: 'by_uncertainty', label: 'most uncertain first', color: ACC, dash: null }];
+    const tip = tipIn(el);
+    const last = rows[rows.length - 1];
+    series.forEach((s) => {
+      const val = (r) => (s.key === 'at_random' ? r.at_random : r.by_uncertainty);
+      svg.append('path').datum(rows).attr('fill', 'none').attr('stroke', s.color).attr('stroke-width', 2).attr('stroke-dasharray', s.dash).attr('stroke-linejoin', 'round')
+        .attr('d', d3.line().x((r) => x(r.referred_pct)).y((r) => y(val(r))));
+      rows.forEach((r) => svg.append('circle').attr('cx', x(r.referred_pct)).attr('cy', y(val(r))).attr('r', 3.5).attr('fill', s.color)
+        .on('mousemove', (ev) => { const [px, py] = d3.pointer(ev, el); showTip(el, tip, px, py, [`Review ${r.referred_pct}% ${s.label}`, `RMSE on the rest ${f2(val(r))} cycles`]); }).on('mouseleave', () => { tip.hidden = true; }));
+      svg.append('text').attr('x', x(last.referred_pct) + 8).attr('y', y(val(last)) + 4).attr('fill', s.key === 'at_random' ? FGM : FG).style('font-size', 'var(--cds-font-size-caption)').style('font-weight', s.key === 'at_random' ? 400 : 600).text(`${s.label} ${f1(val(last))}`);
+    });
+    svg.append('text').attr('x', m.l).attr('y', H - 6).attr('fill', FGM).style('font-size', 'var(--cds-font-size-caption)').text('share of windows sent to an engineer · RMSE, cycles');
+  }
+  function drawShift() {
+    const el = document.getElementById('shift-chart');
+    if (!boxState(el, ['shift'])) return;
+    const rows = D('shift').data;
+    const metrics = [{ key: 'rul_rmse', label: 'RUL error, RMSE (cycles)', fmt: f1 }, { key: 'mean_spread_cycles', label: 'MC Dropout spread (cycles)', fmt: f1 }, { key: 'fault_recall', label: 'Alarm recall', fmt: pct0 }];
+    const per = 64, H = metrics.length * per + 30;
+    const { svg, w } = svgIn(el, H);
+    const l = 8, r = 56;
+    const tip = tipIn(el);
+    metrics.forEach((mt, i) => {
+      const y0 = 10 + i * per;
+      svg.append('text').attr('x', l).attr('y', y0 + 10).attr('fill', FG).style('font-size', 'var(--cds-font-size-caption)').style('font-weight', 600).text(mt.label);
+      const x = d3.scaleLinear([0, d3.max(rows, (d) => (mt.key === 'rul_rmse' ? d.rul_rmse : mt.key === 'fault_recall' ? d.fault_recall : d.mean_spread_cycles))], [l, w - r]);
+      rows.forEach((d, j) => {
+        const v = mt.key === 'rul_rmse' ? d.rul_rmse : mt.key === 'fault_recall' ? d.fault_recall : d.mean_spread_cycles;
+        const yy = y0 + 18 + j * 20;
+        svg.append('rect').attr('x', l).attr('y', yy).attr('height', 14).attr('width', Math.max(1, x(v) - l)).attr('rx', 4).attr('fill', j === 0 ? MUTED : ACC)
+          .on('mousemove', (ev) => { const [px, py] = d3.pointer(ev, el); showTip(el, tip, px, py, [d.test_set, `${mt.label}: ${mt.fmt(v)}`]); }).on('mouseleave', () => { tip.hidden = true; });
+        svg.append('text').attr('x', x(v) + 6).attr('y', yy + 11).attr('fill', FG).style('font-size', 'var(--cds-font-size-caption)').text(mt.fmt(v));
+      });
+    });
+    const ly = H - 8;
+    rows.forEach((d, j) => {
+      const lx = l + j * Math.max(170, w / 2);
+      svg.append('rect').attr('x', lx).attr('y', ly - 9).attr('width', 10).attr('height', 10).attr('rx', 2).attr('fill', j === 0 ? MUTED : ACC);
+      svg.append('text').attr('x', lx + 14).attr('y', ly).attr('fill', FGM).style('font-size', 'var(--cds-font-size-caption)').text(d.test_set);
+    });
+  }
+  function drawCats() {
+    const el = document.getElementById('cat-chart');
+    if (!boxState(el, ['categories'])) return;
+    const rows = D('categories').data;
+    const names = ['Low', 'Moderate', 'High', 'Critical'];
+    const H = 256, m = { l: 74, t: 46, r: 8, b: 8 };
+    const { svg, w } = svgIn(el, H);
+    const cw = (w - m.l - m.r) / 4, ch = (H - m.t - m.b) / 4;
+    const rowTot = Object.fromEntries(names.map((n) => [n, d3.sum(rows.filter((r) => r.true_category === n), (r) => r.windows)]));
+    const tip = tipIn(el);
+    names.forEach((n, j) => svg.append('text').attr('x', m.l + j * cw + cw / 2).attr('y', m.t - 10).attr('text-anchor', 'middle').attr('fill', FGM).style('font-size', 'var(--cds-font-size-caption)').text(n));
+    svg.append('text').attr('x', m.l).attr('y', 12).attr('fill', FGM).style('font-size', 'var(--cds-font-size-caption)').text('predicted category →');
+    rows.forEach((r) => {
+      const i = names.indexOf(r.true_category), j = names.indexOf(r.predicted_category);
+      const share = rowTot[r.true_category] ? r.windows / rowTot[r.true_category] : 0;
+      svg.append('rect').attr('x', m.l + j * cw + 2).attr('y', m.t + i * ch + 2).attr('width', cw - 4).attr('height', ch - 4).attr('rx', 4)
+        .attr('fill', i === j ? ACC : MUTED).attr('fill-opacity', r.windows ? 0.12 + 0.75 * share : 0.06)
+        .on('mousemove', (ev) => { const [px, py] = d3.pointer(ev, el); showTip(el, tip, px, py, [`True ${r.true_category} → predicted ${r.predicted_category}`, `${intf(r.windows)} windows (${pct1(share)} of row)`]); }).on('mouseleave', () => { tip.hidden = true; });
+      svg.append('text').attr('x', m.l + j * cw + cw / 2).attr('y', m.t + i * ch + ch / 2 + 4).attr('text-anchor', 'middle').attr('fill', FG).style('font-size', 'var(--cds-font-size-caption)').style('font-weight', i === j ? 600 : 400).text(intf(r.windows));
+    });
+    names.forEach((n, i) => svg.append('text').attr('x', m.l - 8).attr('y', m.t + i * ch + ch / 2 + 4).attr('text-anchor', 'end').attr('fill', FGM).style('font-size', 'var(--cds-font-size-caption)').text(n));
+  }
+  function drawAtt() {
+    const el = document.getElementById('att-chart');
+    if (!boxState(el, ['attention'])) return;
+    const rows = D('attention').data.slice().sort((a, b) => a.position - b.position);
+    const H = 240, m = { l: 42, r: 150, t: 12, b: 40 };
+    const { svg, w } = svgIn(el, H);
+    const x = d3.scaleLinear(d3.extent(rows, (r) => r.position), [m.l, w - m.r]);
+    const y = d3.scaleLinear([0, d3.max(rows, (r) => Math.max(r.near_failure, r.healthy)) * 1.1], [H - m.b, m.t]);
+    gridY(svg.append('g'), y, m.l, w - m.r, y.ticks(4));
+    const ya = svg.append('g').attr('transform', `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(4).tickFormat(d3.format('.2f')).tickSize(0).tickPadding(6)); styleAxis(ya); ya.select('.domain').remove();
+    const xa = svg.append('g').attr('transform', `translate(0,${H - m.b})`).call(d3.axisBottom(x).ticks(6).tickSizeOuter(0)); styleAxis(xa);
+    const uni = 1 / rows.length;
+    svg.append('line').attr('x1', m.l).attr('x2', w - m.r).attr('y1', y(uni)).attr('y2', y(uni)).attr('stroke', REF).attr('stroke-dasharray', '4 4');
+    svg.append('text').attr('x', w - m.r + 8).attr('y', y(uni) + 4).attr('fill', FGM).style('font-size', 'var(--cds-font-size-caption)').text('uniform weighting');
+    const ser = [{ key: 'healthy', label: 'healthy (RUL > 100)', color: ACC2 }, { key: 'near_failure', label: 'near failure (RUL ≤ 30)', color: ACC }];
+    const last = rows[rows.length - 1];
+    const tip = tipIn(el);
+    const ends = [];
+    ser.forEach((s) => {
+      const val = (r) => (s.key === 'healthy' ? r.healthy : r.near_failure);
+      svg.append('path').datum(rows).attr('fill', 'none').attr('stroke', s.color).attr('stroke-width', 2).attr('stroke-linejoin', 'round')
+        .attr('d', d3.line().x((r) => x(r.position)).y((r) => y(val(r))));
+      ends.push({ s, yv: y(val(last)) });
+    });
+    ends.sort((a, b) => a.yv - b.yv);
+    if (ends.length === 2 && ends[1].yv - ends[0].yv < 14) ends[1].yv = ends[0].yv + 14;
+    ends.forEach((e) => svg.append('text').attr('x', w - m.r + 8).attr('y', e.yv + 4).attr('fill', e.s.color).style('font-size', 'var(--cds-font-size-caption)').style('font-weight', 600).text(e.s.label));
+    const bis = d3.bisector((r) => r.position).center;
+    svg.append('rect').attr('x', m.l).attr('y', m.t).attr('width', w - m.l - m.r).attr('height', H - m.t - m.b).attr('fill', 'transparent')
+      .on('mousemove', (ev) => { const [px, py] = d3.pointer(ev); const r = rows[bis(rows, x.invert(px))]; showTip(el, tip, px, py, [`Position ${r.position} (0 = latest cycle)`, `Near failure ${d3.format('.3f')(r.near_failure)}`, `Healthy ${d3.format('.3f')(r.healthy)}`]); })
+      .on('mouseleave', () => { tip.hidden = true; });
+    svg.append('text').attr('x', m.l).attr('y', H - 6).attr('fill', FGM).style('font-size', 'var(--cds-font-size-caption)').text('position in the 30-cycle window (0 = latest cycle) · mean attention weight');
+  }
+
+  // ---------- header ----------
+  function drawHeader() {
+    if (ok('lead_summary')) {
+      const s = D('lead_summary').data[0];
+      put('[data-source="lead_summary"][data-field="warned"]', String(s.warned));
+      put('[data-source="lead_summary"][data-field="total"]', String(s.total));
+      put('[data-source="lead_summary"][data-field="median_lead"]', String(s.median_lead));
+      put('[data-source="lead_summary"][data-field="min_lead"]', String(s.min_lead));
+      put('[data-source="lead_summary"][data-field="max_lead"]', String(s.max_lead));
+    }
+    if (ok('headline')) {
+      const set = (k, f) => put(`[data-source="headline"][data-where="metric=${k}"]`, f(hv(k)));
+      set('pr_auc', f2); set('precision', f2); set('recall', f2); set('rul_rmse', f1); set('spearman', f2); set('coverage95', pct0); set('category_accuracy', pct0);
+    }
+    if (ok('review_gain')) {
+      const g = D('review_gain').data[0];
+      put('[data-source="review_gain"][data-field="after20"]', f1(g.after20));
+      put('[data-source="review_gain"][data-field="reduction"]', pct0(g.reduction));
+    }
+  }
+
+  function render() {
+    drawHeader();
+    if (page === 'explorer') drawExplorer();
+    if (page === 'models') drawModels();
+    if (page === 'trust') { drawQuint(); drawReferral(); drawShift(); drawCats(); drawAtt(); }
+  }
+  dash.onData(render);
+  const named = location.hash.slice(1);
+  showPage(['explorer', 'models', 'trust'].includes(named) ? named : 'explorer', false);
+})();
+</script>
+
+<script>
+(() => { const m = window.PM_DATA.meta, el = document.getElementById('pm-built');
+  if (el) el.textContent = `Built ${m.built} from ${m.source}. Re-run src/analyze.py (or src/make_dashboard.py) to refresh.`; })();
+</script>
+</div>
+</body>
+</html>

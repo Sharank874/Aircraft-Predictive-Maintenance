@@ -1,0 +1,300 @@
+{
+  "selected_seed": 0,
+  "mc_passes": 50,
+  "dropout": 0.3,
+  "dropout_layers_active_at_inference": [
+    "after Conv1D block",
+    "after BiLSTM",
+    "after Dense(64)"
+  ],
+  "deterministic_vs_mc": {
+    "deterministic": {
+      "fault": {
+        "roc_auc": 0.9977351620594299,
+        "pr_auc": 0.9414274936387808,
+        "precision": 0.8526645768025078,
+        "recall": 0.8192771084337349,
+        "f1": 0.8356374807987711,
+        "threshold": 0.29555052518844604,
+        "brier": 0.007610814180225134,
+        "ece": 0.0048331234726815345,
+        "positive_rate": 0.03256179019808769
+      },
+      "risk": {
+        "risk_mae": 0.0751945972442627,
+        "risk_rmse": 0.11122296620319974,
+        "risk_r2": 0.7812609672546387,
+        "rul_rmse": 13.902871122162253,
+        "rul_mae": 9.399324417114258
+      }
+    },
+    "mc_mean": {
+      "fault": {
+        "roc_auc": 0.9976826405378203,
+        "pr_auc": 0.9378270798140746,
+        "precision": 0.95,
+        "recall": 0.6867469879518072,
+        "f1": 0.7972027972027972,
+        "threshold": 0.6749426126480103,
+        "brier": 0.007466414477676153,
+        "ece": 0.004244002041406656,
+        "positive_rate": 0.03256179019808769
+      },
+      "risk": {
+        "risk_mae": 0.07661519199609756,
+        "risk_rmse": 0.11066277682644526,
+        "risk_r2": 0.7834588885307312,
+        "rul_rmse": 13.832846452961551,
+        "rul_mae": 9.576898574829102
+      }
+    }
+  },
+  "benchmark_last_window_mc": {
+    "risk_mae": 0.08723278343677521,
+    "risk_rmse": 0.11930701877808528,
+    "risk_r2": 0.8615024089813232,
+    "rul_rmse": 14.913377509315305,
+    "rul_mae": 10.904099464416504,
+    "nasa_score": 556.70751953125
+  },
+  "uncertainty": {
+    "spearman_std_vs_abs_error": 0.5816723805946818,
+    "p_value": 0.0,
+    "by_std_quintile": [
+      {
+        "quintile": 1,
+        "mean_std": 0.012241534888744354,
+        "mae_risk": 0.028749654069542885,
+        "mae_rul_cycles": 3.5937068462371826
+      },
+      {
+        "quintile": 2,
+        "mean_std": 0.020882876589894295,
+        "mae_risk": 0.052072905004024506,
+        "mae_rul_cycles": 6.509113311767578
+      },
+      {
+        "quintile": 3,
+        "mean_std": 0.03455496206879616,
+        "mae_risk": 0.07148155570030212,
+        "mae_rul_cycles": 8.93519401550293
+      },
+      {
+        "quintile": 4,
+        "mean_std": 0.049913983792066574,
+        "mae_risk": 0.09721619635820389,
+        "mae_rul_cycles": 12.152026176452637
+      },
+      {
+        "quintile": 5,
+        "mean_std": 0.0740661770105362,
+        "mae_risk": 0.1335791051387787,
+        "mae_rul_cycles": 16.697389602661133
+      }
+    ],
+    "referral": [
+      {
+        "referred_pct": 0,
+        "rul_rmse_remaining": 13.832846641540527,
+        "rul_rmse_random_referral": 13.832846641540527
+      },
+      {
+        "referred_pct": 5,
+        "rul_rmse_remaining": 13.088401794433594,
+        "rul_rmse_random_referral": 13.888368606567383
+      },
+      {
+        "referred_pct": 10,
+        "rul_rmse_remaining": 12.675066947937012,
+        "rul_rmse_random_referral": 13.822765350341797
+      },
+      {
+        "referred_pct": 20,
+        "rul_rmse_remaining": 11.683348655700684,
+        "rul_rmse_random_referral": 13.869019508361816
+      },
+      {
+        "referred_pct": 30,
+        "rul_rmse_remaining": 10.751119613647461,
+        "rul_rmse_random_referral": 13.731016159057617
+      }
+    ],
+    "nominal95_interval_coverage": 0.7062573558258141,
+    "fault_std_correct": 0.005954304710030556,
+    "fault_std_wrong": 0.18404465913772583,
+    "n_wrong": 116
+  },
+  "shift_fd003": {
+    "fd001_test_mean_risk_std": 0.0383293479681015,
+    "fd003_test_mean_risk_std": 0.02177271619439125,
+    "fd001_test_rul_rmse": 13.832846641540527,
+    "fd003_test_rul_rmse": 23.755260467529297,
+    "fd001_std_near_failure": 0.05115267634391785,
+    "fd003_std_near_failure": 0.035782743245363235,
+    "fd003_fault": {
+      "roc_auc": 0.7741995024167779,
+      "pr_auc": 0.24942426815433857,
+      "precision": 0.7647058823529411,
+      "recall": 0.17869415807560138,
+      "f1": 0.28969359331476324,
+      "threshold": 0.6749426126480103,
+      "brier": 0.01723557338118553,
+      "ece": 0.016634297457079745,
+      "positive_rate": 0.021247079595923424
+    }
+  },
+  "risk_categories": {
+    "edges_on_risk_index": [
+      0.52,
+      0.76,
+      0.88
+    ],
+    "labels": [
+      "Low",
+      "Moderate",
+      "High",
+      "Critical"
+    ],
+    "confusion_true_rows_pred_cols": [
+      [
+        8866,
+        129,
+        0,
+        0
+      ],
+      [
+        301,
+        557,
+        36,
+        0
+      ],
+      [
+        0,
+        54,
+        180,
+        23
+      ],
+      [
+        0,
+        0,
+        6,
+        44
+      ]
+    ],
+    "exact_category_accuracy": 0.9461553550411926,
+    "within_one_category": 1.0,
+    "review_flag_std_threshold": 0.07004393637180328,
+    "review_flag_rate_test": 0.10817967830521773
+  },
+  "lead_time_rtf": {
+    "alarm_rule": "MC-mean fault prob >= 0.67 for 3 consecutive cycles",
+    "engines": 15,
+    "detected": 15,
+    "median_lead_cycles": 22.0,
+    "min_lead": 16.0,
+    "max_lead": 35.0,
+    "early_alarms_rul_gt_60": 0,
+    "late_alarms_rul_lt_10": 0,
+    "per_engine": [
+      {
+        "unit": 5,
+        "life_cycles": 269,
+        "alarm_rul": 32.0
+      },
+      {
+        "unit": 8,
+        "life_cycles": 150,
+        "alarm_rul": 22.0
+      },
+      {
+        "unit": 27,
+        "life_cycles": 156,
+        "alarm_rul": 23.0
+      },
+      {
+        "unit": 29,
+        "life_cycles": 163,
+        "alarm_rul": 22.0
+      },
+      {
+        "unit": 38,
+        "life_cycles": 194,
+        "alarm_rul": 24.0
+      },
+      {
+        "unit": 52,
+        "life_cycles": 213,
+        "alarm_rul": 35.0
+      },
+      {
+        "unit": 58,
+        "life_cycles": 147,
+        "alarm_rul": 16.0
+      },
+      {
+        "unit": 62,
+        "life_cycles": 180,
+        "alarm_rul": 21.0
+      },
+      {
+        "unit": 77,
+        "life_cycles": 154,
+        "alarm_rul": 17.0
+      },
+      {
+        "unit": 79,
+        "life_cycles": 199,
+        "alarm_rul": 22.0
+      },
+      {
+        "unit": 80,
+        "life_cycles": 185,
+        "alarm_rul": 26.0
+      },
+      {
+        "unit": 81,
+        "life_cycles": 240,
+        "alarm_rul": 22.0
+      },
+      {
+        "unit": 95,
+        "life_cycles": 283,
+        "alarm_rul": 33.0
+      },
+      {
+        "unit": 98,
+        "life_cycles": 156,
+        "alarm_rul": 17.0
+      },
+      {
+        "unit": 100,
+        "life_cycles": 200,
+        "alarm_rul": 33.0
+      }
+    ]
+  },
+  "attention": {
+    "mean_weight_last5_near_failure": 0.717060923576355,
+    "mean_weight_last5_healthy": 0.284516304731369,
+    "uniform_last5": 0.16666666666666666,
+    "mean_entropy": 2.7926950454711914,
+    "max_entropy_uniform": 3.4011973816621555
+  },
+  "latency_cpu_2core": {
+    "single_window_deterministic_eager_ms": 51.368197499541566,
+    "single_window_mc50_batched_eager_ms": 58.224433349096216,
+    "single_window_mc50_batched_compiled_ms": 3.7088500009849668,
+    "bulk_mc50_windows_per_second": 218.3695851439066
+  },
+  "streaming_demo": {
+    "engine": 5,
+    "updates": 240,
+    "median_update_ms": 58.825833519222215,
+    "p95_update_ms": 67.81821873737499
+  },
+  "thresholds": {
+    "alarm_fault_prob": 0.6749426126480103,
+    "review_risk_std": 0.07004393637180328,
+    "alarm_rule": "fault probability >= alarm threshold for 3 consecutive cycles"
+  }
+}

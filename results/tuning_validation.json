@@ -1,0 +1,83 @@
+{
+  "v1_baseline": {
+    "cfg": {},
+    "val_rul_rmse": [
+      14.969562530517578,
+      12.64393424987793
+    ],
+    "val_pr_auc": [
+      0.9854514205884255,
+      0.9718007698057227
+    ],
+    "mean_val_rul_rmse": 13.806748390197754,
+    "mean_val_pr_auc": 0.9786260951970741
+  },
+  "noise0.1": {
+    "cfg": {
+      "noise": 0.1
+    },
+    "val_rul_rmse": [
+      14.195878982543945,
+      13.299488067626953
+    ],
+    "val_pr_auc": [
+      0.9839606831876005,
+      0.9802565606330089
+    ],
+    "mean_val_rul_rmse": 13.74768352508545,
+    "mean_val_pr_auc": 0.9821086219103048
+  },
+  "noise0.1_l2": {
+    "cfg": {
+      "noise": 0.1,
+      "l2": 0.0001
+    },
+    "val_rul_rmse": [
+      13.921204566955566,
+      13.717209815979004
+    ],
+    "val_pr_auc": [
+      0.9837518991236843,
+      0.9824035887812745
+    ],
+    "mean_val_rul_rmse": 13.819207191467285,
+    "mean_val_pr_auc": 0.9830777439524794
+  },
+  "small32_noise0.1": {
+    "cfg": {
+      "noise": 0.1,
+      "conv_filters": 32,
+      "lstm_units": 32,
+      "dense_units": 32
+    },
+    "val_rul_rmse": [
+      14.968518257141113,
+      13.841011047363281
+    ],
+    "val_pr_auc": [
+      0.9813707252884641,
+      0.9789706264461293
+    ],
+    "mean_val_rul_rmse": 14.404764652252197,
+    "mean_val_pr_auc": 0.9801706758672968
+  },
+  "noise0.2_lr5e-4": {
+    "cfg": {
+      "noise": 0.2,
+      "lr": 0.0005
+    },
+    "val_rul_rmse": [
+      14.082155227661133,
+      13.874878883361816
+    ],
+    "val_pr_auc": [
+      0.9893313009923845,
+      0.9822256673152908
+    ],
+    "mean_val_rul_rmse": 13.978517055511475,
+    "mean_val_pr_auc": 0.9857784841538377
+  },
+  "selected": "noise0.1",
+  "adopted": "v1_baseline",
+  "adoption_rule": "Adopt a new config only if it beats v1 by more than seed-to-seed spread on validation (~1-2 cycles). Best (noise0.1) beat v1 by 0.06 cycles, so v1 was kept: the model is data-limited, not under-regularised."
+}
